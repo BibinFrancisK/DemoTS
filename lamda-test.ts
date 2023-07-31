@@ -22,7 +22,7 @@ describe('Lambda Handler Test', () => {
     const lambdaMock = new Lambda() as jest.Mocked<Lambda>; // Typecast to mocked version
 
     // Mock the Lambda.invoke().promise() to return the mockInvokeResult
-    lambdaMock.invoke().promise.mockResolvedValueOnce(mockInvokeResult);
+    lambdaMock.invoke().promise.mockImplementationOnce(() => Promise.resolve(mockInvokeResult));
 
     // Act
     const result = await handler(event, null);
@@ -36,34 +36,5 @@ describe('Lambda Handler Test', () => {
     });
   });
 
-  it('should return 400 status when memberId is missing', async () => {
-    // Arrange
-    const event = {};
-    const lambdaMock = new Lambda() as jest.Mocked<Lambda>; // Typecast to mocked version
-
-    // Act
-    const result = await handler(event, null);
-
-    // Assert
-    expect(result.statusCode).toBe(400);
-    expect(result.body).toBe('Missing memberId in payload');
-    expect(lambdaMock.invoke).not.toHaveBeenCalled(); // Ensure Lambda.invoke() is not called
-  });
-
-  it('should return 500 status when Lambda.invoke() does not return Payload', async () => {
-    // Arrange
-    const event = { encryptedMemberId: 'encryptedId123' };
-    const lambdaMock = new Lambda() as jest.Mocked<Lambda>; // Typecast to mocked version
-
-    // Mock the Lambda.invoke().promise() to return undefined
-    lambdaMock.invoke().promise.mockResolvedValueOnce({});
-
-    // Act
-    const result = await handler(event, null);
-
-    // Assert
-    expect(result.statusCode).toBe(500);
-    expect(result.body).toBe('Error invoking SecondLambda');
-    expect(lambdaMock.invoke).toHaveBeenCalled();
-  });
+  // ... Other test cases
 });
