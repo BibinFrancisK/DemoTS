@@ -1,0 +1,41 @@
+import java.util.ArrayList;
+import java.util.List;
+
+public class IllegalCharacterChecker {
+
+    public static void main(String[] args) {
+        String input = "This is a % sample < input string > with ? illegal / characters.";
+        
+        // Define a list of illegal characters
+        List<Character> illegalCharacters = new ArrayList<>();
+        illegalCharacters.add('%');
+        illegalCharacters.add('<');
+        illegalCharacters.add('>');
+        illegalCharacters.add('?');
+        illegalCharacters.add('/');
+
+        // Check if the input string contains any illegal characters
+        String illegalCharsFound = findIllegalCharacters(input, illegalCharacters);
+
+        if (illegalCharsFound.isEmpty()) {
+            System.out.println("No illegal characters found.");
+        } else {
+            System.out.println("String contains illegal characters: " + illegalCharsFound);
+        }
+    }
+
+    public static String findIllegalCharacters(String input, List<Character> illegalCharacters) {
+        StringBuilder illegalCharsFound = new StringBuilder();
+
+        for (char character : input.toCharArray()) {
+            if (illegalCharacters.contains(character)) {
+                if (illegalCharsFound.length() > 0) {
+                    illegalCharsFound.append(", ");
+                }
+                illegalCharsFound.append(character);
+            }
+        }
+
+        return illegalCharsFound.toString();
+    }
+}
