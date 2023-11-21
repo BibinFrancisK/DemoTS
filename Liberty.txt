@@ -1,0 +1,44 @@
+# Use the official Liberty base image
+FROM open-liberty:kernel
+
+# Set the working directory
+WORKDIR /config
+
+# Copy the Liberty server configuration (server.xml) and application EAR file
+COPY server.xml /config/
+COPY your-application.ear /config/apps/
+
+# Expose the default Liberty HTTP port
+EXPOSE 9080
+
+# Start Liberty server
+CMD ["/opt/ol/wlp/bin/server", "run"]
+
+
+<server description="Default Server">
+
+    <!-- Enable features -->
+    <featureManager>
+        <feature>javaee-8.0</feature>
+        <!-- Add any additional features your application requires -->
+    </featureManager>
+
+    <!-- HTTP Endpoint -->
+    <httpEndpoint id="defaultHttpEndpoint" httpPort="9080" httpsPort="9443" />
+
+    <!-- Application locations -->
+    <applicationManager autoExpand="true"/>
+
+    <!-- Include your application -->
+    <applicationMonitor updateTrigger="mbean" />
+
+    <!-- Automatically expand WAR files and EAR files -->
+    <applicationDeployments location="apps" />
+
+    <!-- Security configuration -->
+    <basicRegistry id="basic" realm="BasicRealm">
+        <!-- Add user accounts for basic authentication -->
+        <!-- Example: <user name="user" password="password" /> -->
+    </basicRegistry>
+
+</server>
