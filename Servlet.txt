@@ -1,0 +1,52 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@WebServlet("/processXml")
+public class MyServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
+
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // Read the request body
+        StringBuilder requestBody = new StringBuilder();
+        try (BufferedReader reader = request.getReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                requestBody.append(line);
+            }
+        }
+
+        // Parse the JSON request body to PlayerData
+        ObjectMapper objectMapper = new ObjectMapper();
+        PlayerData playerData = objectMapper.readValue(requestBody.toString(), PlayerData.class);
+
+        // Process the PlayerData (you can replace this with your actual processing logic)
+        EdfServiceResponse edfServiceResponse = processPlayerData(playerData);
+
+        // Convert the EdfServiceResponse to JSON
+        String jsonResponse = objectMapper.writeValueAsString(edfServiceResponse);
+
+        // Set response content type
+        response.setContentType("application/json");
+
+        // Send the JSON response
+        try (PrintWriter out = response.getWriter()) {
+            out.print(jsonResponse);
+        }
+    }
+
+    private EdfServiceResponse processPlayerData(PlayerData playerData) {
+        // Replace this method with your actual processing logic
+        // For demonstration purposes, just create a dummy response
+        return new EdfServiceResponse("Success", "Player data processed successfully");
+    }
+}
