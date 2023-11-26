@@ -1,0 +1,215 @@
+interface Benefit {
+  benefitNumber: string;
+  bNFTStatus: string;
+  location: string;
+  retirementDate: string;
+  cashBalance: string;
+  incomeAmt: string;
+  transValue: string;
+  certOptCode: string;
+  option: string;
+  survPercentage: string;
+  moS: string;
+}
+
+interface ConsolidatedBenefit {
+  retirementDate: string;
+  option: string;
+  totalAnnuityBenefit: number;
+  totalCashBalanceBenefit: number;
+  benefits: Benefit[];
+}
+
+const data: Benefit[] = [
+  // Your data here
+];
+
+const consolidatedBenefits: ConsolidatedBenefit[] = data.reduce((accumulator, currentBenefit) => {
+  const existingGroup = accumulator.find(
+    (group) => group.retirementDate === currentBenefit.retirementDate && group.option === currentBenefit.option
+  );
+
+  if (existingGroup) {
+    // Update existing group
+    existingGroup.totalAnnuityBenefit += parseFloat(currentBenefit.incomeAmt);
+    existingGroup.totalCashBalanceBenefit += parseFloat(currentBenefit.cashBalance);
+    existingGroup.benefits.push(currentBenefit);
+  } else {
+    // Create a new group
+    const newGroup: ConsolidatedBenefit = {
+      retirementDate: currentBenefit.retirementDate,
+      option: currentBenefit.option,
+      totalAnnuityBenefit: parseFloat(currentBenefit.incomeAmt),
+      totalCashBalanceBenefit: parseFloat(currentBenefit.cashBalance),
+      benefits: [currentBenefit],
+    };
+
+    accumulator.push(newGroup);
+  }
+
+  return accumulator;
+}, [] as ConsolidatedBenefit[]);
+
+console.log(consolidatedBenefits);
+##############################################
+  
+[
+    {
+        "benefitNumber": "1",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/02/2025",
+        "cashBalance": "1500.00",
+        "incomeAmt": "250.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "survivor",
+        "survPercentage": "25",
+        "moS": "1"
+    },
+    {
+        "benefitNumber": "3",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/03/2025",
+        "cashBalance": "2000.00",
+        "incomeAmt": "150.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "life",
+        "survPercentage": "25",
+        "moS": "1"
+    },
+    {
+        "benefitNumber": "2",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/02/2025",
+        "cashBalance": "3000.00",
+        "incomeAmt": "500.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "survivor",
+        "survPercentage": "25",
+        "moS": "1"
+    },
+    {
+        "benefitNumber": "5",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/10/2025",
+        "cashBalance": "2000.00",
+        "incomeAmt": "400.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "isolated",
+        "survPercentage": "25",
+        "moS": "1"
+    },
+    {
+        "benefitNumber": "4",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/03/2025",
+        "cashBalance": "4500.00",
+        "incomeAmt": "350.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "life",
+        "survPercentage": "25",
+        "moS": "1"
+    }
+]
+##############################################
+
+[
+  {
+    "retirementDate": "01/02/2025",
+    "option": "survivor",
+    "totalAnnuityBenefit": 751,
+    "totalCashBalanceBenefit": 4500,
+    "benefits": [
+      {
+        "benefitNumber": "1",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/02/2025",
+        "cashBalance": "1500.00",
+        "incomeAmt": "250.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "survivor",
+        "survPercentage": "25",
+        "moS": "1"
+      },
+      {
+        "benefitNumber": "2",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/02/2025",
+        "cashBalance": "3000.00",
+        "incomeAmt": "500.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "survivor",
+        "survPercentage": "25",
+        "moS": "1"
+      }
+    ]
+  },
+  {
+    "retirementDate": "01/03/2025",
+    "option": "life",
+    "totalAnnuityBenefit": 501,
+    "totalCashBalanceBenefit": 6500,
+    "benefits": [
+      {
+        "benefitNumber": "3",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/03/2025",
+        "cashBalance": "2000.00",
+        "incomeAmt": "150.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "life",
+        "survPercentage": "25",
+        "moS": "1"
+      },
+      {
+        "benefitNumber": "4",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/03/2025",
+        "cashBalance": "4500.00",
+        "incomeAmt": "350.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "life",
+        "survPercentage": "25",
+        "moS": "1"
+      }
+    ]
+  },
+  {
+    "retirementDate": "01/10/2025",
+    "option": "isolated",
+    "totalAnnuityBenefit": 400.5,
+    "totalCashBalanceBenefit": 2000,
+    "benefits": [
+      {
+        "benefitNumber": "5",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/10/2025",
+        "cashBalance": "2000.00",
+        "incomeAmt": "400.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "isolated",
+        "survPercentage": "25",
+        "moS": "1"
+      }
+    ]
+  }
+]
