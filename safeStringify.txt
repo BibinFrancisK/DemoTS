@@ -1,0 +1,24 @@
+function safeStringify(data: any): string {
+  // Check for null or undefined
+  if (data === null || data === undefined) {
+    return '';
+  }
+
+  // Check for empty object
+  if (typeof data === 'object' && Object.keys(data).length === 0) {
+    return '{}';
+  }
+
+  // Check for empty array
+  if (Array.isArray(data) && data.length === 0) {
+    return '[]';
+  }
+
+  // Stringify other values
+  return JSON.stringify(data);
+}
+
+// Example usage:
+const obj = { key: 'value' };
+const jsonString = safeStringify(obj);
+console.log(jsonString);
