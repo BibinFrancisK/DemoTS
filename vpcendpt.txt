@@ -1,0 +1,65 @@
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+
+const app = new cdk.App();
+const stack = new cdk.Stack(app, 'MyStack');
+
+// Create a VPC
+const vpc = new ec2.Vpc(stack, 'MyVpc', {
+  maxAzs: 2, // Adjust based on your requirements
+  natGateways: 1, // Adjust based on your requirements
+});
+
+// Create a private subnet
+const privateSubnet = new ec2.PrivateSubnet(stack, 'MyPrivateSubnet', {
+  vpc,
+  cidrBlock: '10.0.1.0/24', // Adjust based on your VPC CIDR and subnet requirements
+});
+
+// Create an API Gateway
+const api = new apigateway.RestApi(stack, 'MyApi');
+
+// Create a VPC endpoint for API Gateway in the private subnet
+const apiVpcEndpoint = new ec2.InterfaceVpcEndpoint(stack, 'ApiVpcEndpoint', {
+  vpc,
+  service: {
+    name: `com.amazonaws.${stack.region}.execute-api`,
+    port: 443,
+  },
+  subnets: {
+    subnets: [privateSubnet],
+  },
+});
+
+// Now you can use 'apiVpcEndpoint' to configure API Gateway to access resources in the private subnet
+
+app.synth();
+#################33
+
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+
+const app = new cdk.App();
+const stack = new cdk.Stack(app, 'MyStack');
+
+// ... (Previous code to create VPC, private subnet, API Gateway, and VPC endpoint)
+
+// Create a load balancer in the private subnet (replace with your actual load balancer construct)
+const loadBalancer = new elbv2.ApplicationLoadBalancer(stack, 'MyLoadBalancer', {
+  vpc,
+  internetFacing: false,
+  // ... other load balancer configurations
+});
+
+// Add a listener and target group to the load balancer (replace with your actual configurations)
+const listener = loadBalancer.addListener('MyListener', { port: 80 });
+const targetGroup = listener.addTargets('MyTargetGroup', { port: 80, targets: [] });
+
+// Add a VPC link to API Gateway pointing to the load balancer
+apiVpcEndpoint.addApiGateway('ApiGatewayVpcLink', {
+  targets: [loadBalancer],
+});
+
+app.synth();
