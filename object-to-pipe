@@ -1,0 +1,93 @@
+import * as AWS from 'aws-sdk';
+
+// Configure AWS SDK with your credentials
+AWS.config.update({
+  accessKeyId: 'YOUR_ACCESS_KEY_ID',
+  secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+  region: 'YOUR_REGION'
+});
+
+// Create S3 object instance
+const s3 = new AWS.S3();
+
+// Given array of benefits
+const benefits = [
+  {
+    "benefitNumber": "1",
+    "bNFTStatus": "Deferred",
+    "location": "us",
+    "retirementDate": "01/02/2025",
+    "cashBalance": "1500.00",
+    "incomeAmt": "250.50",
+    "transValue": "10",
+    "certOptCode": "1",
+    "option": "survivor",
+    "survPercentage": "25",
+    "moS": "1"
+  },
+  // Other benefit objects...
+];
+
+// Convert each benefit object to a pipe-delimited string
+const pipeDelimitedData = benefits.map(benefit => {
+  return Object.values(benefit).join('|');
+}).join('\n');
+
+// S3 bucket parameters
+const params = {
+  Bucket: 'YOUR_BUCKET_NAME',
+  Key: 'benefits.txt',
+  Body: pipeDelimitedData,
+  ContentType: 'text/plain'
+};
+
+// Upload the data to S3 bucket as a TXT file
+s3.upload(params, (err, data) => {
+  if (err) {
+    console.error("Error uploading file:", err);
+  } else {
+    console.log("File uploaded successfully:", data.Location);
+  }
+});
+#####################
+import { benefitsToPipeDelimitedString } from './yourFileName'; // Replace 'yourFileName' with the actual file name where the function is defined
+
+describe('benefitsToPipeDelimitedString', () => {
+  test('should convert each benefit object to a pipe-delimited string', () => {
+    const benefits = [
+      {
+        "benefitNumber": "1",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/02/2025",
+        "cashBalance": "1500.00",
+        "incomeAmt": "250.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "survivor",
+        "survPercentage": "25",
+        "moS": "1"
+      },
+      {
+        "benefitNumber": "2",
+        "bNFTStatus": "Deferred",
+        "location": "us",
+        "retirementDate": "01/02/2025",
+        "cashBalance": "3000.00",
+        "incomeAmt": "500.50",
+        "transValue": "10",
+        "certOptCode": "1",
+        "option": "survivor",
+        "survPercentage": "25",
+        "moS": "1"
+      },
+    ];
+
+    const expected = [
+      "1|Deferred|us|01/02/2025|1500.00|250.50|10|1|survivor|25|1",
+      "2|Deferred|us|01/02/2025|3000.00|500.50|10|1|survivor|25|1"
+    ].join('\n');
+
+    expect(benefitsToPipeDelimitedString(benefits)).toEqual(expected);
+  });
+});
