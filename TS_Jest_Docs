@@ -1,0 +1,17 @@
+Typescript
+Particulars	Documentation
+Basic Types	https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+TSC	https://www.typescriptlang.org/docs/handbook/tsconfig-json.html
+TSC CLI	https://www.typescriptlang.org/docs/handbook/compiler-options.html
+Debugging	https://code.visualstudio.com/docs/typescript/typescript-debugging
+Objects	https://www.typescriptlang.org/docs/handbook/2/objects.html
+Types of types	https://www.typescriptlang.org/docs/handbook/2/types-from-types.html
+Generics	https://www.typescriptlang.org/docs/handbook/2/generics.html
+Decorators	https://www.typescriptlang.org/docs/handbook/decorators.html
+Modules	https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules
+
+Jest
+Particulars	Documentation
+Jest Config	https://jestjs.io/docs/configuration
+Jest CLI	https://jestjs.io/docs/cli
+Jest Expect	https://jestjs.io/docs/expect#methods
