@@ -1,0 +1,51 @@
+interface Contracts {
+    contractId: string;
+    paymentAmount: string; // Keeping it as string to match your type definition
+    agentCode: string;
+    productName: string;
+    cycleDate: string;
+}
+
+function processContracts(contracts: Contracts[]): Map<string, Contracts> {
+    // Remove duplicates based on contractId, cycleDate, and paymentAmount
+    const uniqueContracts = new Map<string, Contracts>();
+    for (const contract of contracts) {
+        const uniqueKey = `${contract.contractId}-${contract.cycleDate}-${contract.paymentAmount}`;
+        if (!uniqueContracts.has(uniqueKey)) {
+            uniqueContracts.set(uniqueKey, contract);
+        }
+    }
+
+    // Consolidate paymentAmount for each contractId
+    const consolidatedContracts = new Map<string, Contracts>();
+    for (const contract of uniqueContracts.values()) {
+        if (consolidatedContracts.has(contract.contractId)) {
+            const existingContract = consolidatedContracts.get(contract.contractId);
+            if (existingContract) {
+                existingContract.paymentAmount = (parseFloat(existingContract.paymentAmount) + parseFloat(contract.paymentAmount)).toString();
+            }
+        } else {
+            consolidatedContracts.set(contract.contractId, { ...contract });
+        }
+    }
+
+    // Create a map with contractId as the key
+    const resultMap = new Map<string, Contracts>();
+    for (const [contractId, contract] of consolidatedContracts.entries()) {
+        resultMap.set(contractId, contract);
+    }
+
+    return resultMap;
+}
+
+// Example usage:
+const contractsArray: Contracts[] = [
+    { contractId: '1', paymentAmount: '100', agentCode: 'A1', productName: 'Product1', cycleDate: '2023-05-01' },
+    { contractId: '1', paymentAmount: '100', agentCode: 'A1', productName: 'Product1', cycleDate: '2023-05-01' },
+    { contractId: '2', paymentAmount: '200', agentCode: 'A2', productName: 'Product2', cycleDate: '2023-05-01' },
+    { contractId: '1', paymentAmount: '300', agentCode: 'A1', productName: 'Product1', cycleDate: '2023-06-01' },
+    { contractId: '3', paymentAmount: '150', agentCode: 'A3', productName: 'Product3', cycleDate: '2023-05-01' }
+];
+
+const resultMap = processContracts(contractsArray);
+console.log(resultMap);
