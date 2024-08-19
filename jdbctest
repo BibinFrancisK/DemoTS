@@ -1,0 +1,65 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.*;
+
+public class QueryExecutorTest {
+
+    @Mock
+    private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    @InjectMocks
+    private QueryExecutor queryExecutor;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    public void testExecuteQuery() throws Exception {
+        String query = "SELECT * FROM users WHERE id = :id";
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", 1);
+
+        // Mocking ResultSet
+        ResultSet resultSet = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+
+        when(resultSet.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(2);
+        when(metadata.getColumnLabel(1)).thenReturn("id");
+        when(metadata.getColumnLabel(2)).thenReturn("name");
+
+        when(resultSet.getObject(1)).thenReturn(1);
+        when(resultSet.getObject(2)).thenReturn("John Doe");
+
+        // Mocking the query method
+        when(namedParameterJdbcTemplate.query(any(String.class), anyMap(), any())).thenAnswer(invocation -> {
+            var rowMapper = invocation.getArgument(2, RowMapper.class);
+            return List.of(rowMapper.mapRow(resultSet, 1));
+        });
+
+        // Execute the method
+        List<Map<String, Object>> result = queryExecutor.executeQuery(query, params);
+
+        // Verify the results
+        Map<String, Object> expectedRow = new LinkedHashMap<>();
+        expectedRow.put("id", 1);
+        expectedRow.put("name", "John Doe");
+
+        assertEquals(1, result.size());
+        assertEquals(expectedRow, result.get(0));
+    }
+}
