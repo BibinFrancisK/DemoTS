@@ -1,0 +1,81 @@
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.*;
+
+public class DB2DataRepositoryTest {
+
+    @Mock
+    private DataSource dataSource;
+
+    @Mock
+    private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    @Mock
+    private ResultSet resultSet;
+
+    @Mock
+    private ResultSetMetaData resultSetMetaData;
+
+    @InjectMocks
+    private DB2DataRepository db2DataRepository;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(namedParameterJdbcTemplate.getJdbcTemplate()).thenReturn(new JdbcTemplate(dataSource));
+    }
+
+    @Test
+    public void testExecuteQuery() throws Exception {
+        // Given
+        String query = "SELECT * FROM users WHERE order_date BETWEEN :startDate AND :endDate";
+        Map<String, Object> params = new HashMap<>();
+        params.put("startDate", java.sql.Date.valueOf("2024-01-10"));
+        params.put("endDate", java.sql.Date.valueOf("2024-01-31"));
+
+        // Mocking ResultSetMetaData
+        when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+        when(resultSetMetaData.getColumnCount()).thenReturn(2);
+        when(resultSetMetaData.getColumnLabel(1)).thenReturn("id");
+        when(resultSetMetaData.getColumnLabel(2)).thenReturn("name");
+
+        // Mocking ResultSet
+        when(resultSet.next()).thenReturn(true).thenReturn(false); // one row
+        when(resultSet.getObject("id")).thenReturn(1);
+        when(resultSet.getObject("name")).thenReturn("John Doe");
+
+        // Mocking NamedParameterJdbcTemplate
+        when(namedParameterJdbcTemplate.query(eq(query), eq(params), any())).thenAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            return Collections.singletonList(((org.springframework.jdbc.core.RowMapper<?>) args[2]).mapRow(resultSet, 1));
+        });
+
+        // Injecting the NamedParameterJdbcTemplate manually since it is constructed on the fly in the method
+        db2DataRepository = spy(new DB2DataRepository());
+        doReturn(namedParameterJdbcTemplate).when(db2DataRepository).createNamedParameterJdbcTemplate(any());
+
+        // When
+        List<Map<String, Object>> result = db2DataRepository.executeQuery(query, params);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).get("id"));
+        assertEquals("John Doe", result.get(0).get("name"));
+
+        // Verify that query was called
+        verify(namedParameterJdbcTemplate).query(eq(query), eq(params), any());
+    }
+}
