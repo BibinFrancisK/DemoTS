@@ -7,7 +7,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -34,7 +33,6 @@ public class DB2DataRepositoryTest {
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        when(namedParameterJdbcTemplate.getJdbcTemplate()).thenReturn(new JdbcTemplate(dataSource));
     }
 
     @Test
@@ -63,11 +61,11 @@ public class DB2DataRepositoryTest {
         });
 
         // Injecting the NamedParameterJdbcTemplate manually since it is constructed on the fly in the method
-        db2DataRepository = spy(new DB2DataRepository());
-        doReturn(namedParameterJdbcTemplate).when(db2DataRepository).createNamedParameterJdbcTemplate(any());
+        DB2DataRepository spyRepository = spy(new DB2DataRepository());
+        doReturn(namedParameterJdbcTemplate).when(spyRepository).createNamedParameterJdbcTemplate(any());
 
         // When
-        List<Map<String, Object>> result = db2DataRepository.executeQuery(query, params);
+        List<Map<String, Object>> result = spyRepository.executeQuery(query, params);
 
         // Then
         assertNotNull(result);
