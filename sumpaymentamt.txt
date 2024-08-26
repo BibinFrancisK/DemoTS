@@ -2,36 +2,43 @@ interface Contract {
   contractId: string;
   product: string;
   paymentAmt: number;
+  [key: string]: any; // For any additional fields
 }
 
 function sumPaymentAmounts(input: string[]): string[] {
   const contracts: Contract[] = input.map(line => {
-    const [contractId, product, paymentAmt] = line.split('|').map(item => item.trim());
-    return { contractId, product, paymentAmt: parseFloat(paymentAmt) };
+    const fields = line.split('|').map(item => item.trim());
+    return {
+      contractId: fields[0],
+      product: fields[1],
+      paymentAmt: parseFloat(fields[2]),
+      originalFields: fields // Store original fields to reconstruct the string
+    };
   });
 
   const contractMap = new Map<string, Contract>();
 
-  contracts.forEach(({ contractId, product, paymentAmt }) => {
-    const key = `${contractId}|${product}`;
+  contracts.forEach(contract => {
+    const key = `${contract.contractId}|${contract.product}`;
     if (contractMap.has(key)) {
-      contractMap.get(key)!.paymentAmt += paymentAmt;
+      contractMap.get(key)!.paymentAmt += contract.paymentAmt;
     } else {
-      contractMap.set(key, { contractId, product, paymentAmt });
+      contractMap.set(key, contract);
     }
   });
 
-  return Array.from(contractMap.values()).map(({ contractId, product, paymentAmt }) => 
-    `${contractId} | ${product} | ${paymentAmt.toFixed(2)}`
-  );
+  return Array.from(contractMap.values()).map(contract => {
+    contract.originalFields[2] = contract.paymentAmt.toFixed(2); // Update paymentAmt field
+    return contract.originalFields.join(' | '); // Reconstruct the original string with updated paymentAmt
+  });
 }
 
 // Example input
 const input = [
-  "1234 | abc | 1000.00",
-  "5678 | xyz | 500.00",
-  "1234 | abc | -500.00",
-  "1234 | abc | 1000.00"
+  "1234 | abc | 1000.00 | additionalField1 | additionalField2",
+  "5678 | xyz | 500.00 | additionalField1 | additionalField2",
+  "1234 | abc | -500.00 | additionalField1 | additionalField2",
+  "1234 | abc | 1000.00 | additionalField1 | additionalField2"
 ];
 
 // Process the input
@@ -41,7 +48,7 @@ console.log(output);
 /*
 Output:
 [
-  "1234 | abc | 1500.00",
-  "5678 | xyz | 500.00"
+  "1234 | abc | 1500.00 | additionalField1 | additionalField2",
+  "5678 | xyz | 500.00 | additionalField1 | additionalField2"
 ]
 */
