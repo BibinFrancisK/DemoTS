@@ -1,0 +1,47 @@
+interface Contract {
+  contractId: string;
+  product: string;
+  paymentAmt: number;
+}
+
+function sumPaymentAmounts(input: string[]): string[] {
+  const contracts: Contract[] = input.map(line => {
+    const [contractId, product, paymentAmt] = line.split('|').map(item => item.trim());
+    return { contractId, product, paymentAmt: parseFloat(paymentAmt) };
+  });
+
+  const contractMap = new Map<string, Contract>();
+
+  contracts.forEach(({ contractId, product, paymentAmt }) => {
+    const key = `${contractId}|${product}`;
+    if (contractMap.has(key)) {
+      contractMap.get(key)!.paymentAmt += paymentAmt;
+    } else {
+      contractMap.set(key, { contractId, product, paymentAmt });
+    }
+  });
+
+  return Array.from(contractMap.values()).map(({ contractId, product, paymentAmt }) => 
+    `${contractId} | ${product} | ${paymentAmt.toFixed(2)}`
+  );
+}
+
+// Example input
+const input = [
+  "1234 | abc | 1000.00",
+  "5678 | xyz | 500.00",
+  "1234 | abc | -500.00",
+  "1234 | abc | 1000.00"
+];
+
+// Process the input
+const output = sumPaymentAmounts(input);
+console.log(output);
+
+/*
+Output:
+[
+  "1234 | abc | 1500.00",
+  "5678 | xyz | 500.00"
+]
+*/
