@@ -1,117 +1,184 @@
 package com.example;
 
-import org.apache.commons.csv.*;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class PaymentAdjuster {
 
-    // File paths
-    private static final String INPUT_CSV = "src/main/resources/cca_extract.csv";
-    private static final String OUTPUT_CSV = "src/main/resources/adjusted_cca_extract.csv";
-    private static final LocalDate DATE_THRESHOLD = LocalDate.of(2024, 7, 1);
+    public static void main(String[] args) throws Exception {
+        String inputFilePath = "src/main/resources/cca_extract.xlsx";
+        String outputFilePath = "src/main/resources/adjusted_cca_extract.xlsx";
 
-    public static void main(String[] args) {
-        try {
-            // Define product type and expected total amount
-            Map<String, Double> expectedAmounts = new HashMap<>();
-            expectedAmounts.put("ProductA", 5000.0);
-            expectedAmounts.put("ProductB", 7500.0);
+        // Define expected PAYMENT_AMOUNT by PRODUCT_TYPE
+        Map<String, BigDecimal> expectedAmountMap = new HashMap<>();
+        expectedAmountMap.put("A1", new BigDecimal("5000.00"));
+        expectedAmountMap.put("B2", new BigDecimal("7000.00"));
 
-            List<CSVRecord> records = readCsv(INPUT_CSV);
-            List<Map<String, String>> adjustedRecords = adjustPayments(records, expectedAmounts);
-            writeCsv(adjustedRecords, OUTPUT_CSV);
-
-            System.out.println("Payment adjustment completed. New file created: " + OUTPUT_CSV);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        processExcel(inputFilePath, outputFilePath, expectedAmountMap);
     }
 
-    // Read the CSV file
-    public static List<CSVRecord> readCsv(String filePath) throws IOException {
-        try (Reader reader = Files.newBufferedReader(Paths.get(filePath))) {
-            CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
-            return csvParser.getRecords();
+    public static void processExcel(String inputFilePath, String outputFilePath, Map<String, BigDecimal> expectedAmountMap) throws Exception {
+        FileInputStream fis = new FileInputStream(inputFilePath);
+        Workbook workbook = new XSSFWorkbook(fis);
+        Sheet sheet = workbook.getSheetAt(0);
+
+        // Read all rows into a list, while preserving header
+        List<Row> rows = new ArrayList<>();
+        Row headerRow = sheet.getRow(0);
+        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            rows.add(sheet.getRow(i));
         }
-    }
 
-    // Adjust payments
-    public static List<Map<String, String>> adjustPayments(List<CSVRecord> records, Map<String, Double> expectedAmounts) {
-        // Group records by PRODUCT_TYPE
-        Map<String, List<CSVRecord>> recordsByProductType = records.stream()
-                .collect(Collectors.groupingBy(record -> record.get("PRODUCT_TYPE")));
-
-        List<Map<String, String>> adjustedRecords = new ArrayList<>();
-
-        for (String productType : recordsByProductType.keySet()) {
-            List<CSVRecord> productRecords = recordsByProductType.get(productType);
-            double currentTotal = productRecords.stream()
-                    .filter(record -> isValidRecord(record))
-                    .mapToDouble(record -> Double.parseDouble(record.get("PAYMENT_AMOUNT")))
-                    .sum();
-
-            double targetAmount = expectedAmounts.getOrDefault(productType, currentTotal);
-            double amountDifference = targetAmount - currentTotal;
-
-            if (amountDifference != 0) {
-                distributeAdjustment(productRecords, amountDifference);
+        // Remove duplicates based on TRANSACTION_ID
+        Map<String, Row> uniqueRows = new HashMap<>();
+        int transactionIdIndex = findColumnIndex(headerRow, "TRANSACTION_ID");
+        for (Row row : rows) {
+            String transactionId = getCellValueAsString(row.getCell(transactionIdIndex));
+            if (!transactionId.isEmpty()) {
+                uniqueRows.putIfAbsent(transactionId, row);
             }
+        }
 
-            // Prepare adjusted records
-            for (CSVRecord record : productRecords) {
-                Map<String, String> recordMap = new HashMap<>();
-                for (String header : record.toMap().keySet()) {
-                    recordMap.put(header, record.get(header));
+        // Process unique rows
+        List<Row> filteredRows = new ArrayList<>(uniqueRows.values());
+        adjustPaymentAmount(filteredRows, headerRow, expectedAmountMap);
+
+        // Write the results to a new XLSX file
+        writeToExcel(headerRow, filteredRows, outputFilePath);
+        workbook.close();
+    }
+
+    private static void adjustPaymentAmount(List<Row> rows, Row headerRow, Map<String, BigDecimal> expectedAmountMap) {
+        int productTypeIndex = findColumnIndex(headerRow, "PRODUCT_TYPE");
+        int paymentAmountIndex = findColumnIndex(headerRow, "PAYMENT_AMOUNT");
+
+        // Map to track total amounts per PRODUCT_TYPE
+        Map<String, BigDecimal> currentAmountMap = new HashMap<>();
+        for (Row row : rows) {
+            String productType = getCellValueAsString(row.getCell(productTypeIndex));
+            BigDecimal paymentAmount = getCellValueAsBigDecimal(row.getCell(paymentAmountIndex));
+
+            if (!productType.isEmpty() && paymentAmount != null) {
+                currentAmountMap.put(productType, currentAmountMap.getOrDefault(productType, BigDecimal.ZERO).add(paymentAmount));
+            }
+        }
+
+        // Adjust payment amounts to match expected values
+        for (Map.Entry<String, BigDecimal> entry : expectedAmountMap.entrySet()) {
+            String productType = entry.getKey();
+            BigDecimal expectedAmount = entry.getValue();
+            BigDecimal currentAmount = currentAmountMap.getOrDefault(productType, BigDecimal.ZERO);
+            BigDecimal difference = expectedAmount.subtract(currentAmount);
+
+            if (difference.compareTo(BigDecimal.ZERO) != 0) {
+                distributeAdjustment(rows, productType, paymentAmountIndex, difference);
+            }
+        }
+    }
+
+    private static void distributeAdjustment(List<Row> rows, String productType, int paymentAmountIndex, BigDecimal difference) {
+        List<Row> matchingRows = rows.stream()
+                .filter(row -> productType.equals(getCellValueAsString(row.getCell(findColumnIndex(row.getSheet().getRow(0), "PRODUCT_TYPE")))))
+                .filter(row -> getCellValueAsBigDecimal(row.getCell(paymentAmountIndex)).compareTo(BigDecimal.ZERO) > 0)
+                .collect(Collectors.toList());
+
+        if (matchingRows.isEmpty()) {
+            return;
+        }
+
+        BigDecimal adjustmentPerRow = difference.divide(new BigDecimal(matchingRows.size()), BigDecimal.ROUND_HALF_EVEN);
+        for (Row row : matchingRows) {
+            Cell paymentCell = row.getCell(paymentAmountIndex);
+            BigDecimal originalAmount = getCellValueAsBigDecimal(paymentCell);
+            BigDecimal newAmount = originalAmount.add(adjustmentPerRow);
+            if (newAmount.compareTo(BigDecimal.ZERO) >= 0) {
+                paymentCell.setCellValue(newAmount.doubleValue());
+            }
+        }
+    }
+
+    private static void writeToExcel(Row headerRow, List<Row> rows, String outputFilePath) throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Sheet1");
+
+        // Write header
+        Row newHeaderRow = sheet.createRow(0);
+        for (int i = 0; i < headerRow.getPhysicalNumberOfCells(); i++) {
+            Cell newCell = newHeaderRow.createCell(i);
+            newCell.setCellValue(headerRow.getCell(i).getStringCellValue());
+        }
+
+        // Write rows
+        int rowNum = 1;
+        for (Row row : rows) {
+            Row newRow = sheet.createRow(rowNum++);
+            for (int i = 0; i < row.getPhysicalNumberOfCells(); i++) {
+                Cell oldCell = row.getCell(i);
+                Cell newCell = newRow.createCell(i);
+
+                if (oldCell != null) {
+                    switch (oldCell.getCellType()) {
+                        case STRING:
+                            newCell.setCellValue(oldCell.getStringCellValue());
+                            break;
+                        case NUMERIC:
+                            newCell.setCellValue(oldCell.getNumericCellValue());
+                            break;
+                        default:
+                            newCell.setCellValue("");
+                    }
                 }
-                adjustedRecords.add(recordMap);
             }
         }
-        return adjustedRecords;
+
+        // Write output to file
+        FileOutputStream fos = new FileOutputStream(outputFilePath);
+        workbook.write(fos);
+        fos.close();
+        workbook.close();
     }
 
-    // Check if record is valid for adjustment
-    private static boolean isValidRecord(CSVRecord record) {
-        LocalDate issueDate = LocalDate.parse(record.get("ISSUE DATE"));
-        double paymentAmount = Double.parseDouble(record.get("PAYMENT_AMOUNT"));
-        return issueDate.isBefore(DATE_THRESHOLD) && paymentAmount != 0;
-    }
-
-    // Distribute the adjustment across multiple records
-    // Distribute the adjustment across multiple records
-private static void distributeAdjustment(List<CSVRecord> productRecords, double amountDifference) {
-    int numRecords = (int) productRecords.stream().filter(PaymentAdjuster::isValidRecord).count();
-    double adjustmentPerRecord = amountDifference / Math.max(numRecords, 1);
-
-    for (CSVRecord record : productRecords) {
-        if (isValidRecord(record)) {
-            double currentAmount = Double.parseDouble(record.get("PAYMENT_AMOUNT"));
-            double newAmount = currentAmount + adjustmentPerRecord;
-
-            // Create a map to modify record values and update PAYMENT_AMOUNT
-            Map<String, String> updatedRecord = new HashMap<>(record.toMap());
-            updatedRecord.put("PAYMENT_AMOUNT", String.format("%.2f", newAmount));
-            adjustedRecords.add(updatedRecord);
-        } else {
-            // Add unmodified records to the final list
-            adjustedRecords.add(new HashMap<>(record.toMap()));
-        }
-    }
-}
-
-
-    // Write the adjusted CSV
-    public static void writeCsv(List<Map<String, String>> records, String outputPath) throws IOException {
-        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputPath));
-             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(records.get(0).keySet().toArray(new String[0])))) {
-            for (Map<String, String> record : records) {
-                csvPrinter.printRecord(record.values());
+    private static int findColumnIndex(Row headerRow, String columnName) {
+        for (int i = 0; i < headerRow.getPhysicalNumberOfCells(); i++) {
+            if (headerRow.getCell(i).getStringCellValue().equalsIgnoreCase(columnName)) {
+                return i;
             }
         }
+        throw new IllegalArgumentException("Column " + columnName + " not found");
+    }
+
+    private static String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        if (cell.getCellType() == CellType.STRING) {
+            return cell.getStringCellValue().trim();
+        } else if (cell.getCellType() == CellType.NUMERIC) {
+            return String.valueOf((int) cell.getNumericCellValue());
+        }
+        return "";
+    }
+
+    private static BigDecimal getCellValueAsBigDecimal(Cell cell) {
+        if (cell == null || cell.getCellType() == CellType.BLANK) {
+            return BigDecimal.ZERO;
+        }
+        if (cell.getCellType() == CellType.STRING) {
+            try {
+                return new BigDecimal(cell.getStringCellValue().trim());
+            } catch (NumberFormatException e) {
+                return BigDecimal.ZERO;
+            }
+        } else if (cell.getCellType() == CellType.NUMERIC) {
+            return BigDecimal.valueOf(cell.getNumericCellValue());
+        }
+        return BigDecimal.ZERO;
     }
 }
