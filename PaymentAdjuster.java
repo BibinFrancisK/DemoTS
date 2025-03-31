@@ -83,18 +83,27 @@ public class PaymentAdjuster {
     }
 
     // Distribute the adjustment across multiple records
-    private static void distributeAdjustment(List<CSVRecord> productRecords, double amountDifference) {
-        int numRecords = productRecords.size();
-        double adjustmentPerRecord = amountDifference / Math.max(numRecords, 1);
+    // Distribute the adjustment across multiple records
+private static void distributeAdjustment(List<CSVRecord> productRecords, double amountDifference) {
+    int numRecords = (int) productRecords.stream().filter(PaymentAdjuster::isValidRecord).count();
+    double adjustmentPerRecord = amountDifference / Math.max(numRecords, 1);
 
-        for (CSVRecord record : productRecords) {
-            if (isValidRecord(record)) {
-                double currentAmount = Double.parseDouble(record.get("PAYMENT_AMOUNT"));
-                double newAmount = currentAmount + adjustmentPerRecord;
-                ((Map<String, String>) record.toMap()).put("PAYMENT_AMOUNT", String.format("%.2f", newAmount));
-            }
+    for (CSVRecord record : productRecords) {
+        if (isValidRecord(record)) {
+            double currentAmount = Double.parseDouble(record.get("PAYMENT_AMOUNT"));
+            double newAmount = currentAmount + adjustmentPerRecord;
+
+            // Create a map to modify record values and update PAYMENT_AMOUNT
+            Map<String, String> updatedRecord = new HashMap<>(record.toMap());
+            updatedRecord.put("PAYMENT_AMOUNT", String.format("%.2f", newAmount));
+            adjustedRecords.add(updatedRecord);
+        } else {
+            // Add unmodified records to the final list
+            adjustedRecords.add(new HashMap<>(record.toMap()));
         }
     }
+}
+
 
     // Write the adjusted CSV
     public static void writeCsv(List<Map<String, String>> records, String outputPath) throws IOException {
