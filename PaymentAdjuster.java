@@ -84,25 +84,54 @@ public class PaymentAdjuster {
     }
 
     private static void distributeAdjustment(List<Row> rows, String productType, int paymentAmountIndex, BigDecimal difference) {
-        List<Row> matchingRows = rows.stream()
-                .filter(row -> productType.equals(getCellValueAsString(row.getCell(findColumnIndex(row.getSheet().getRow(0), "PRODUCT_TYPE")))))
-                .filter(row -> getCellValueAsBigDecimal(row.getCell(paymentAmountIndex)).compareTo(BigDecimal.ZERO) > 0)
-                .collect(Collectors.toList());
+    List<Row> matchingRows = rows.stream()
+            .filter(row -> productType.equals(getCellValueAsString(row.getCell(findColumnIndex(row.getSheet().getRow(0), "PRODUCT_TYPE")))))
+            .filter(row -> getCellValueAsBigDecimal(row.getCell(paymentAmountIndex)).compareTo(BigDecimal.ZERO) > 0)
+            .collect(Collectors.toList());
 
-        if (matchingRows.isEmpty()) {
-            return;
-        }
+    if (matchingRows.isEmpty() || difference.compareTo(BigDecimal.ZERO) == 0) {
+        return;
+    }
 
-        BigDecimal adjustmentPerRow = difference.divide(new BigDecimal(matchingRows.size()), BigDecimal.ROUND_HALF_EVEN);
-        for (Row row : matchingRows) {
-            Cell paymentCell = row.getCell(paymentAmountIndex);
-            BigDecimal originalAmount = getCellValueAsBigDecimal(paymentCell);
-            BigDecimal newAmount = originalAmount.add(adjustmentPerRow);
-            if (newAmount.compareTo(BigDecimal.ZERO) >= 0) {
-                paymentCell.setCellValue(newAmount.doubleValue());
-            }
+    // Calculate total current amount to proportionally distribute the difference
+    BigDecimal totalAmount = matchingRows.stream()
+            .map(row -> getCellValueAsBigDecimal(row.getCell(paymentAmountIndex)))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    if (totalAmount.compareTo(BigDecimal.ZERO) == 0) {
+        return;
+    }
+
+    // Proportionally distribute the adjustment based on original amount
+    BigDecimal remainingDifference = difference;
+    for (int i = 0; i < matchingRows.size(); i++) {
+        Row row = matchingRows.get(i);
+        Cell paymentCell = row.getCell(paymentAmountIndex);
+        BigDecimal originalAmount = getCellValueAsBigDecimal(paymentCell);
+
+        // Proportional adjustment
+        BigDecimal adjustment = difference.multiply(originalAmount).divide(totalAmount, 2, BigDecimal.ROUND_HALF_EVEN);
+
+        // Apply adjustment but ensure non-negative result
+        BigDecimal newAmount = originalAmount.add(adjustment);
+        if (newAmount.compareTo(BigDecimal.ZERO) >= 0) {
+            paymentCell.setCellValue(newAmount.doubleValue());
+            remainingDifference = remainingDifference.subtract(adjustment);
         }
     }
+
+    // Handle rounding errors by adding/subtracting remaining difference to the last row
+    if (remainingDifference.compareTo(BigDecimal.ZERO) != 0) {
+        Row lastRow = matchingRows.get(matchingRows.size() - 1);
+        Cell lastPaymentCell = lastRow.getCell(paymentAmountIndex);
+        BigDecimal lastAmount = getCellValueAsBigDecimal(lastPaymentCell);
+        BigDecimal correctedAmount = lastAmount.add(remainingDifference);
+
+        if (correctedAmount.compareTo(BigDecimal.ZERO) >= 0) {
+            lastPaymentCell.setCellValue(correctedAmount.doubleValue());
+        }
+    }
+}
 
     private static void writeToExcel(Row headerRow, List<Row> rows, String outputFilePath) throws IOException {
         Workbook workbook = new XSSFWorkbook();
