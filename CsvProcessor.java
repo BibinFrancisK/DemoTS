@@ -26,10 +26,10 @@ public class CsvProcessor {
             Map<String, List<CSVRecord>> groupedRecords = records.stream()
                     .collect(Collectors.groupingBy(record -> record.get(PRODUCT_TYPE)));
 
-            List<Map<String, String>> updatedRecords = adjustPaymentAmounts(groupedRecords, productTypeTargetMap, records);
+            List<Map<String, String>> updatedRecords = adjustPaymentAmounts(groupedRecords, productTypeTargetMap);
             writeCsv(records, updatedRecords, OUTPUT_FILE);
 
-            System.out.println("File processed successfully. Check adjusted_cca_extract.csv.");
+            System.out.println("✅ File processed successfully. Check adjusted_cca_extract.csv.");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -43,37 +43,62 @@ public class CsvProcessor {
     }
 
     private static List<Map<String, String>> adjustPaymentAmounts(Map<String, List<CSVRecord>> groupedRecords,
-                                                                  Map<String, Double> productTypeTargetMap,
-                                                                  List<CSVRecord> allRecords) {
+                                                                  Map<String, Double> productTypeTargetMap) {
         List<Map<String, String>> updatedRecords = new ArrayList<>();
 
-        for (CSVRecord record : allRecords) {
-            Map<String, String> updatedRecord = new HashMap<>(record.toMap());
-            String productType = record.get(PRODUCT_TYPE);
-            String paymentAmountStr = record.get(PAYMENT_AMOUNT);
+        for (Map.Entry<String, List<CSVRecord>> entry : groupedRecords.entrySet()) {
+            String productType = entry.getKey();
+            List<CSVRecord> productTypeRecords = entry.getValue();
 
-            if (productTypeTargetMap.containsKey(productType) && !paymentAmountStr.isEmpty()) {
-                double currentPayment = Double.parseDouble(paymentAmountStr);
+            if (productTypeTargetMap.containsKey(productType)) {
                 double targetSum = productTypeTargetMap.get(productType);
 
-                // Get all records with the same product type to calculate total amount
-                List<CSVRecord> productTypeRecords = groupedRecords.get(productType);
+                // Calculate current sum of PAYMENT_AMOUNT
                 double currentSum = productTypeRecords.stream()
-                        .filter(r -> !r.get(PAYMENT_AMOUNT).isEmpty())
-                        .mapToDouble(r -> Double.parseDouble(r.get(PAYMENT_AMOUNT)))
+                        .filter(record -> !record.get(PAYMENT_AMOUNT).isEmpty())
+                        .mapToDouble(record -> Double.parseDouble(record.get(PAYMENT_AMOUNT)))
                         .sum();
 
                 // Calculate the difference to be adjusted
                 double difference = targetSum - currentSum;
-                if (difference != 0 && currentPayment != 0) {
-                    double adjustmentPerRecord = difference / productTypeRecords.size();
-                    double newAmount = currentPayment + adjustmentPerRecord;
-                    updatedRecord.put(PAYMENT_AMOUNT, String.format("%.2f", newAmount));
+
+                // Get non-zero entries for adjustment
+                List<CSVRecord> nonZeroRecords = productTypeRecords.stream()
+                        .filter(record -> !record.get(PAYMENT_AMOUNT).isEmpty() && Double.parseDouble(record.get(PAYMENT_AMOUNT)) != 0)
+                        .collect(Collectors.toList());
+
+                if (!nonZeroRecords.isEmpty() && difference != 0) {
+                    double adjustmentPerRecord = difference / nonZeroRecords.size();
+                    double cumulativeAdjustment = 0.0;
+                    int lastIndex = nonZeroRecords.size() - 1;
+
+                    for (int i = 0; i < nonZeroRecords.size(); i++) {
+                        CSVRecord record = nonZeroRecords.get(i);
+                        Map<String, String> updatedRecord = new HashMap<>(record.toMap());
+
+                        double currentAmount = Double.parseDouble(record.get(PAYMENT_AMOUNT));
+                        double adjustedAmount;
+
+                        // Apply adjustment to all but the last record to ensure total sum matches exactly
+                        if (i == lastIndex) {
+                            adjustedAmount = currentAmount + (difference - cumulativeAdjustment);
+                        } else {
+                            adjustedAmount = currentAmount + adjustmentPerRecord;
+                            cumulativeAdjustment += adjustmentPerRecord;
+                        }
+
+                        updatedRecord.put(PAYMENT_AMOUNT, String.format("%.2f", adjustedAmount));
+                        updatedRecords.add(updatedRecord);
+                    }
                 }
             }
 
-            // Add the updated record to the list
-            updatedRecords.add(updatedRecord);
+            // Add unchanged records (including zero PAYMENT_AMOUNT and non-matching records)
+            for (CSVRecord record : productTypeRecords) {
+                if (!updatedRecords.contains(record.toMap())) {
+                    updatedRecords.add(record.toMap());
+                }
+            }
         }
 
         return updatedRecords;
